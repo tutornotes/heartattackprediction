@@ -12,25 +12,18 @@
 import streamlit as st
 
 # --- 1. Import Necessary Libraries ---
-# All libraries from your original script are needed.
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+import numpy as np # Retained as it's a common dependency for pandas/scikit-learn
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, roc_curve, confusion_matrix, classification_report
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, f_classif
 import warnings
 import joblib 
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
-
 
 # --- Set up the Streamlit page ---
 st.set_page_config(
@@ -43,7 +36,6 @@ st.title("Predictive Modeling for Heart Attack Diagnosis")
 st.markdown("This model predicts the risk of a heart attack based on patient data.")
 
 # --- 2. Load the Dataset (for training) ---
-# This part is only run when the app is first deployed or reloaded.
 @st.cache_data
 def load_data():
     try:
@@ -55,13 +47,10 @@ def load_data():
 
 df = load_data()
 
-
 # --- 3. Data Preprocessing (from your original script) ---
-# Define numerical and categorical features for preprocessing
 numerical_features = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
 categorical_features = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
 
-# Preprocessing pipelines
 numerical_transformer = StandardScaler()
 categorical_transformer = OneHotEncoder(handle_unknown='ignore')
 preprocessor = ColumnTransformer(
@@ -72,36 +61,24 @@ preprocessor = ColumnTransformer(
     remainder='passthrough'
 )
 
-
 # --- 4. Model Training and Saving (from your original script) ---
-# This section will train the model and save it locally for the app to load.
-# This should ideally be a separate script, but for a simple all-in-one app, we can do it here.
-# Streamlit's @st.cache_resource decorator ensures this function only runs once.
 @st.cache_resource
 def train_and_save_model():
-    # Your full training pipeline code from sections 5-9 goes here.
-    # This includes splitting data, feature selection, training, and saving.
-
-    # Separate features (X) and target (y)
     df['target'] = df['condition'].map({0: 0, 1: 1})
     X = df.drop(['target', 'condition'], axis=1)
     y = df['target']
 
-    # Preprocess and get transformed features
     X_transformed = preprocessor.fit_transform(X, y)
     feature_names = preprocessor.get_feature_names_out()
     X_processed = pd.DataFrame(X_transformed, columns=feature_names)
 
-    # Feature selection
     selector = SelectKBest(score_func=f_classif, k=15)
     X_selected = selector.fit_transform(X_processed, y)
     selected_feature_names = X_processed.columns[selector.get_support(indices=True)]
     
-    # Train the best model (Random Forest Classifier)
     best_rf_model = RandomForestClassifier(n_estimators=100, max_depth=10, min_samples_split=2, random_state=42)
     best_rf_model.fit(X_selected, y)
 
-    # Save the models and preprocessors
     joblib.dump(best_rf_model, 'best_rf_model.pkl')
     joblib.dump(preprocessor, 'preprocessor.pkl')
     joblib.dump(selector, 'feature_selector.pkl')
@@ -109,10 +86,8 @@ def train_and_save_model():
     
     return "Model trained and saved."
 
-# Run the training and saving process once
 train_and_save_model()
 
-# Now, load the saved models for the prediction function
 loaded_preprocessor = joblib.load('preprocessor.pkl')
 loaded_selector = joblib.load('feature_selector.pkl')
 loaded_model = joblib.load('best_rf_model.pkl')
@@ -144,9 +119,7 @@ with st.form(key='user_input_form'):
         
     submit_button = st.form_submit_button(label='Predict Heart Attack Risk')
 
-# --- Prediction Logic and Output ---
 if submit_button:
-    # Prepare the input data for the model
     user_data = {
         'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol, 'fbs': fbs,
         'restecg': restecg, 'thalach': thalach, 'exang': exang, 'oldpeak': oldpeak,
@@ -155,18 +128,15 @@ if submit_button:
     
     user_df = pd.DataFrame([user_data])
     
-    # Preprocess the user input
     user_transformed = loaded_preprocessor.transform(user_df)
     processed_feature_names = loaded_preprocessor.get_feature_names_out()
     user_processed_df = pd.DataFrame(user_transformed, columns=processed_feature_names)
     user_selected = user_processed_df[loaded_selected_feature_names]
 
-    # Make prediction
     prediction_proba = loaded_model.predict_proba(user_selected)[0]
     risk_probability = prediction_proba[1]
     risk_percentage = risk_probability * 100
 
-    # Display results with different colors based on risk
     st.subheader("Prediction Result")
     
     if risk_percentage < 30:
