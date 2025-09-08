@@ -13,7 +13,7 @@ import streamlit as st
 
 # --- 1. Import Necessary Libraries ---
 import pandas as pd
-import numpy as np # Used as a common dependency for pandas/scikit-learn
+import numpy as np 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -22,38 +22,36 @@ from sklearn.feature_selection import SelectKBest, f_classif
 import warnings
 import joblib 
 
-# Suppress warnings
+# Suppress warnings for a cleaner Streamlit app interface
 warnings.filterwarnings('ignore')
 
-# --- Set up the Streamlit page ---
+# --- Set up the Streamlit page configuration ---
 st.set_page_config(
     page_title="Heart Attack Risk Predictor",
     page_icon="❤️",
     layout="wide",
 )
 
-st.title("Predictive Modeling for Heart Attack Diagnosis")
-st.markdown("This model predicts the risk of a heart attack based on patient data.")
+st.title("Heart Attack Risk Predictor")
+st.markdown("Enter the patient's health details below to receive a risk assessment.")
 
-# --- 2. Load the Dataset (for training) ---
-# This part is run only once on app start using Streamlit's cache.
+# --- Load the Dataset and Model (cached to run only once) ---
 @st.cache_data
 def load_data():
     try:
         df = pd.read_csv('heart.csv')
         return df
     except FileNotFoundError:
-        st.error("ERROR: 'heart.csv' not found. Please ensure the dataset file is in the same directory as this script.")
+        st.error("ERROR: 'heart.csv' not found. Please upload this file to your Streamlit Community Cloud project.")
         st.stop()
 
+# Load the dataset for training
 df = load_data()
 
-
-# --- 3. Data Preprocessing & Model Training (from your original script) ---
-# This entire block is also cached to run only once on app deployment.
+# This function trains the model and saves the necessary files.
+# It is run only once on deployment, thanks to st.cache_resource.
 @st.cache_resource
 def train_and_save_model():
-    # Define features
     numerical_features = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
     categorical_features = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
 
@@ -85,7 +83,7 @@ def train_and_save_model():
     best_rf_model = RandomForestClassifier(n_estimators=100, max_depth=10, min_samples_split=2, random_state=42)
     best_rf_model.fit(X_selected, y)
 
-    # Save models for deployment (Streamlit automatically loads them from the same directory)
+    # Save models for deployment
     joblib.dump(best_rf_model, 'best_rf_model.pkl')
     joblib.dump(preprocessor, 'preprocessor.pkl')
     joblib.dump(selector, 'feature_selector.pkl')
@@ -101,19 +99,18 @@ loaded_selector = joblib.load('feature_selector.pkl')
 loaded_model = joblib.load('best_rf_model.pkl')
 loaded_selected_feature_names = joblib.load('selected_feature_names.pkl')
 
-# --- 4. User Input-Based Prediction System with Streamlit UI ---
-
+# --- User Input-Based Prediction System with Streamlit UI ---
 st.subheader("Patient Health Details")
-st.markdown("Please enter the following health details to get a risk assessment.")
 
+# Using st.form to group inputs and prevent app reruns on each input change
 with st.form(key='user_input_form'):
     col1, col2 = st.columns(2)
     with col1:
         age = st.number_input("Age (in years):", min_value=1, max_value=120, value=50)
         sex = st.selectbox("Sex:", options=[0, 1], format_func=lambda x: "Female" if x == 0 else "Male")
         cp = st.selectbox("Chest Pain Type:", options=[0, 1, 2, 3], format_func=lambda x: {0:"Typical Angina", 1:"Atypical Angina", 2:"Non-anginal Pain", 3:"Asymptomatic"}[x])
-        trestbps = st.number_input("Resting Blood Pressure (trestbps in mm/Hg):", min_value=50, max_value=250, value=120)
-        chol = st.number_input("Serum Cholesterol (chol in mg/dl):", min_value=100, max_value=600, value=200)
+        trestbps = st.number_input("Resting Blood Pressure (mm/Hg):", min_value=50, max_value=250, value=120)
+        chol = st.number_input("Serum Cholesterol (mg/dl):", min_value=100, max_value=600, value=200)
         fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl:", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
         restecg = st.selectbox("Resting ECG Results:", options=[0, 1, 2], format_func=lambda x: {0:"Normal", 1:"ST-T wave abn", 2:"LV hypertrophy"}[x])
 
@@ -122,14 +119,14 @@ with st.form(key='user_input_form'):
         exang = st.selectbox("Exercise Induced Angina:", options=[0, 1], format_func=lambda x: "No" if x == 0 else "Yes")
         oldpeak = st.number_input("ST Depression:", min_value=0.0, max_value=10.0, value=1.0)
         slope = st.selectbox("Slope of the Peak Exercise ST Segment:", options=[0, 1, 2], format_func=lambda x: {0:"Upsloping", 1:"Flat", 2:"Downsloping"}[x])
-        ca = st.number_input("Number of Major Vessels (0-3) colored by fluoroscopy:", min_value=0, max_value=3, value=0)
+        ca = st.number_input("Number of Major Vessels (0-3):", min_value=0, max_value=3, value=0)
         thal = st.selectbox("Thalassemia:", options=[0, 1, 2, 3], format_func=lambda x: {0:"NULL", 1:"normal", 2:"fixed defect", 3:"reversible defect"}[x])
         
     submit_button = st.form_submit_button(label='Predict Heart Attack Risk')
 
-# --- Prediction Logic and Output ---
+
+# --- Prediction Logic and Output Display ---
 if submit_button:
-    # Prepare the input data for the model
     user_data = {
         'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol, 'fbs': fbs,
         'restecg': restecg, 'thalach': thalach, 'exang': exang, 'oldpeak': oldpeak,
@@ -138,18 +135,18 @@ if submit_button:
     
     user_df = pd.DataFrame([user_data])
     
-    # Preprocess the user input
+    # Preprocess the user input using the loaded objects
     user_transformed = loaded_preprocessor.transform(user_df)
     processed_feature_names = loaded_preprocessor.get_feature_names_out()
     user_processed_df = pd.DataFrame(user_transformed, columns=processed_feature_names)
     user_selected = user_processed_df[loaded_selected_feature_names]
 
-    # Make prediction
+    # Make the final prediction
     prediction_proba = loaded_model.predict_proba(user_selected)[0]
     risk_probability = prediction_proba[1]
     risk_percentage = risk_probability * 100
 
-    # Display results with different colors based on risk
+    # Display the result using visual Streamlit components
     st.subheader("Prediction Result")
     
     if risk_percentage < 30:
