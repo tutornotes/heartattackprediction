@@ -42,7 +42,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-# The CSS above hides the top-right menu and the footer.
 
 st.title("Predictive Modeling for Heart Attack Diagnosis")
 st.markdown("This model predicts the risk of a heart attack based on patient data.")
